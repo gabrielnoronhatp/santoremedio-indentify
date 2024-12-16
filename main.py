@@ -20,7 +20,7 @@ class ContadorDePessoasApp:
     def __init__(self, root):
       
         self.root = root
-        self.root.title("Contador de Pessoas")
+        self.root.title("Santo Remedio - Identify")
         self.root.geometry("300x150")
         self.root.configure(bg="#4bb9ba")
         
