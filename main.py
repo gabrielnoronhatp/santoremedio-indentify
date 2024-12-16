@@ -7,7 +7,7 @@ from sort.sort import Sort
 import numpy as np
 import time
 
-# Configuração do log
+
 LOG_ARQUIVO = "log_detectados.txt"
 
 def salvar_log(mensagem):
@@ -22,6 +22,7 @@ class ContadorDePessoasApp:
         self.root = root
         self.root.title("Contador de Pessoas")
         self.root.geometry("300x150")
+        self.root.configure(bg="#4bb9ba")
         
         self.contador_cumulativo = 0  
         self.ids_rastreados = set()  
@@ -37,6 +38,9 @@ class ContadorDePessoasApp:
 
         self.btn_iniciar = tk.Button(root, text="Iniciar Detecção", command=self.iniciar_detectar)
         self.btn_iniciar.pack(pady=10)
+
+        self.btn_parar = tk.Button(root, text="Parar Detecção", command=self.parar_detectar)
+        self.btn_parar.pack(pady=10)
 
         self.rodando = False
 
@@ -98,7 +102,7 @@ class ContadorDePessoasApp:
         self.rodando = False
 
     def parar_detectar(self):
-        """Para a detecção."""
+     
         self.rodando = False
 
 
