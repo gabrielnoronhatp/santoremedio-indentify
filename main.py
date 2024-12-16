@@ -3,25 +3,30 @@ from ultralytics import YOLO
 from datetime import datetime
 import tkinter as tk
 from threading import Thread
+from sort.sort import Sort
+import numpy as np
+import time
 
-
+# Configuração do log
 LOG_ARQUIVO = "log_detectados.txt"
 
-# Função para salvar logs
 def salvar_log(mensagem):
+    
     with open(LOG_ARQUIVO, "a") as log:
         log.write(f"{datetime.now()} - {mensagem}\n")
 
 
 class ContadorDePessoasApp:
     def __init__(self, root):
+      
         self.root = root
         self.root.title("Contador de Pessoas")
         self.root.geometry("300x150")
-        self.contador_estavel = 0 
-        self.num_pessoas_temp = [] 
+        
+        self.contador_cumulativo = 0  
+        self.ids_rastreados = set()  
+        self.tracker = Sort()  
 
-      
         self.num_pessoas = tk.IntVar(value=0)
 
         self.label_contador = tk.Label(root, text="Pessoas detectadas:", font=("Arial", 16))
@@ -36,23 +41,13 @@ class ContadorDePessoasApp:
         self.rodando = False
 
     def iniciar_detectar(self):
+      
         if not self.rodando:
             self.rodando = True
-            self.thread = Thread(target=self.detectar_pessoas)
-            self.thread.start()
-
-    def atualizar_contador_estavel(self):
-     
-        if len(self.num_pessoas_temp) >= 10: 
-            moda = max(set(self.num_pessoas_temp), key=self.num_pessoas_temp.count)
-            if moda != self.contador_estavel:
-                self.contador_estavel = moda
-                self.num_pessoas.set(self.contador_estavel)
-                salvar_log(f"Atualizado: {self.contador_estavel} pessoas")
-            self.num_pessoas_temp = [] 
+            Thread(target=self.detectar_pessoas, daemon=True).start()
 
     def detectar_pessoas(self):
-        # Carregar o modelo YOLO
+   
         modelo = YOLO("yolov8n.pt")
         captura = cv2.VideoCapture(0)
 
@@ -68,32 +63,42 @@ class ContadorDePessoasApp:
                 break
 
             resultados = modelo(frame)
-            num_pessoas_frame = 0
+            detecoes = []  
 
-            # Processar detecções
+            
             for box in resultados[0].boxes:
-                classe = int(box.cls[0])  
-                if modelo.names[classe] == "person":  
-                    num_pessoas_frame += 1
+                classe = int(box.cls[0])
+                if modelo.names[classe] == "person":
                     x1, y1, x2, y2 = map(int, box.xyxy[0])
-                    conf = box.conf[0]
-                    label = f"{modelo.names[classe]} {conf:.2f}"
-                    cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-                    cv2.putText(frame, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+                    score = float(box.conf[0])
+                    detecoes.append([x1, y1, x2, y2, score])
 
-         
-            self.num_pessoas_temp.append(num_pessoas_frame)
-            self.atualizar_contador_estavel()
+            rastreamentos = self.tracker.update(np.array(detecoes))
 
-        
-            cv2.imshow("Detecção de Pessoas", frame)
+            for rastreamento in rastreamentos:
+                x1, y1, x2, y2, rastreador_id = map(int, rastreamento)
+                if rastreador_id not in self.ids_rastreados:
+                    self.ids_rastreados.add(rastreador_id)
+                    self.contador_cumulativo += 1
+                    salvar_log(f"Nova pessoa detectada. Total: {self.contador_cumulativo}")
+
+              
+                cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                cv2.putText(frame, f"ID: {rastreador_id}", (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
 
            
+            self.num_pessoas.set(self.contador_cumulativo)
+            cv2.imshow("Detecção de Pessoas", frame)
+
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
 
         captura.release()
         cv2.destroyAllWindows()
+        self.rodando = False
+
+    def parar_detectar(self):
+        """Para a detecção."""
         self.rodando = False
 
 
